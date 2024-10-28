@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+// IERC20 Interface integrated directly into the contract to avoid import issues
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+contract TokenCollateralWithInheritor {
+    IERC20 public USDC = IERC20(0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4);
+    IERC20 public USDT = IERC20(0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df);
+    IERC20 public WSTETH = IERC20(0xf610A9dfB7C89644979b4A0f27063E9e7d7Cda32);
+    IERC20 public CHESS = IERC20(0x9735fb1126B521A913697A541f768376011bCcF9);
+    IERC20 public EBTC = IERC20(0xCA8dF0B6bD5588f3FD651F85f6E5aCe325bA9Dfd);
+
+    struct Collateral {
+        address token;
+        uint256 amount;
+        uint256 unlockTime;
+        address inheritor;
+    }
+
+    // Mapping from user address to collateral information
+    mapping(address => Collateral) public collaterals;
+    event Collateralized(address indexed user, address token, uint256 amount, uint256 unlockTime, address inheritor);
+    event CollateralWithdrawn(address indexed user, address token, uint256 amount);
+    event Inherited(address indexed inheritor, address token, uint256 amount);
+
+    // Group swap struct
+    struct GroupSwap {
+        address[] participants;
+        mapping(address => uint256) allocations;
+        bool active;
+        address tokenToSwap;
+    }
+    
+    // Mapping for group swaps
+    mapping(uint256 => GroupSwap) public groupSwaps;
+    uint256 public groupSwapId = 1;
+
+    event GroupSwapCreated(uint256 swapId, address tokenToSwap);
+    event GroupSwapExecuted(uint256 swapId, address tokenOut);
+
+    // Function to collateralize tokens with an unlock time and inheritor
+    function collateralize(address token, uint256 amount, uint256 unlockTime, address inheritor) external {
+        require(amount > 0, "Amount must be greater than zero");
+        require(inheritor != address(0), "Inheritor must be specified");
+
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+
+        collaterals[msg.sender] = Collateral({
+            token: token,
+            amount: amount,
+            unlockTime: unlockTime,
+            inheritor: inheritor
+        });
+
+        emit Collateralized(msg.sender, token, amount, unlockTime, inheritor);
+    }
+
+    // Withdraw collateral by the original user
+    function withdrawCollateral() external {
+        Collateral storage collateral = collaterals[msg.sender];
+        require(collateral.amount > 0, "No collateral found");
+        require(block.timestamp >= collateral.unlockTime, "Collateral is still locked");
+
+        uint256 amount = collateral.amount;
+        address token = collateral.token;
+        delete collaterals[msg.sender];
+
+        IERC20(token).transfer(msg.sender, amount);
+        emit CollateralWithdrawn(msg.sender, token, amount);
+    }
+
+    // Allow inheritor to withdraw if the original user hasn’t withdrawn within unlock time
+    function inheritCollateral(address user) external {
+        Collateral storage collateral = collaterals[user];
+        require(collateral.amount > 0, "No collateral found");
+        require(block.timestamp >= collateral.unlockTime, "Collateral is still locked");
+        require(msg.sender == collateral.inheritor, "Not the inheritor");
+
+        uint256 amount = collateral.amount;
+        address token = collateral.token;
+        delete collaterals[user];
+
+        IERC20(token).transfer(msg.sender, amount);
+        emit Inherited(msg.sender, token, amount);
+    }
+
+    // Function to create a group swap with specific token allocations
+    function createGroupSwap(address tokenToSwap, address[] memory participants, uint256[] memory allocations) external {
+        require(participants.length == allocations.length, "Participants and allocations length mismatch");
+        GroupSwap storage newSwap = groupSwaps[groupSwapId];
+        newSwap.tokenToSwap = tokenToSwap;
+        newSwap.active = true;
+
+        for (uint256 i = 0; i < participants.length; i++) {
+            require(allocations[i] > 0, "Allocation must be greater than zero");
+            newSwap.participants.push(participants[i]);
+            newSwap.allocations[participants[i]] = allocations[i];
+        }
+
+        emit GroupSwapCreated(groupSwapId, tokenToSwap);
+        groupSwapId++;
+    }
+
+    // Execute group swap to distribute a new token proportionally to participants
+    function executeGroupSwap(uint256 swapId, address tokenOut) external {
+        GroupSwap storage swap = groupSwaps[swapId];
+        require(swap.active, "Group swap not active");
+
+        uint256 totalInput;
+        for (uint256 i = 0; i < swap.participants.length; i++) {
+            address participant = swap.participants[i];
+            uint256 allocation = swap.allocations[participant];
+            IERC20(swap.tokenToSwap).transferFrom(participant, address(this), allocation);
+            totalInput += allocation;
+        }
+
+        uint256 totalOutput = IERC20(tokenOut).balanceOf(address(this));
+        for (uint256 i = 0; i < swap.participants.length; i++) {
+            address participant = swap.participants[i];
+            uint256 allocation = swap.allocations[participant];
+            uint256 amountOut = (allocation * totalOutput) / totalInput;
+            IERC20(tokenOut).transfer(participant, amountOut);
+        }
+
+        swap.active = false;
+        emit GroupSwapExecuted(swapId, tokenOut);
+    }
+}
