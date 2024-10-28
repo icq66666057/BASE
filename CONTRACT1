@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract DepositWithdraw {
+
+    // Tokens to interact with
+    IERC20 public USDC = IERC20(0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4);
+    IERC20 public USDT = IERC20(0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df);
+    IERC20 public WSTETH = IERC20(0xf610A9dfB7C89644979b4A0f27063E9e7d7Cda32);
+    IERC20 public CHESS = IERC20(0x9735fb1126B521A913697A541f768376011bCcF9);
+    IERC20 public EBTC = IERC20(0xCA8dF0B6bD5588f3FD651F85f6E5aCe325bA9Dfd);
+
+    // Struct to store deposit balances for each user address
+    struct DepositInfo {
+        uint256 USDCBalance;
+        uint256 USDTBalance;
+        uint256 WSTETHBalance;
+        uint256 CHESSBalance;
+        uint256 EBTCBalance;
+    }
+
+    // Mapping to track each user's balance information
+    mapping(address => DepositInfo) private balances;
+
+    // Deposit functions for each token
+    function depositUSDC(uint256 amount) external {
+        require(USDC.transferFrom(msg.sender, address(this), amount), "Deposit failed");
+        balances[msg.sender].USDCBalance += amount;
+    }
+
+    function depositUSDT(uint256 amount) external {
+        require(USDT.transferFrom(msg.sender, address(this), amount), "Deposit failed");
+        balances[msg.sender].USDTBalance += amount;
+    }
+
+    function depositWSTETH(uint256 amount) external {
+        require(WSTETH.transferFrom(msg.sender, address(this), amount), "Deposit failed");
+        balances[msg.sender].WSTETHBalance += amount;
+    }
+
+    function depositCHESS(uint256 amount) external {
+        require(CHESS.transferFrom(msg.sender, address(this), amount), "Deposit failed");
+        balances[msg.sender].CHESSBalance += amount;
+    }
+
+    function depositEBTC(uint256 amount) external {
+        require(EBTC.transferFrom(msg.sender, address(this), amount), "Deposit failed");
+        balances[msg.sender].EBTCBalance += amount;
+    }
+
+    // Withdraw functions for each token
+    function withdrawUSDC(uint256 amount) external {
+        require(balances[msg.sender].USDCBalance >= amount, "Insufficient balance");
+        balances[msg.sender].USDCBalance -= amount;
+        require(USDC.transfer(msg.sender, amount), "Withdraw failed");
+    }
+
+    function withdrawUSDT(uint256 amount) external {
+        require(balances[msg.sender].USDTBalance >= amount, "Insufficient balance");
+        balances[msg.sender].USDTBalance -= amount;
+        require(USDT.transfer(msg.sender, amount), "Withdraw failed");
+    }
+
+    function withdrawWSTETH(uint256 amount) external {
+        require(balances[msg.sender].WSTETHBalance >= amount, "Insufficient balance");
+        balances[msg.sender].WSTETHBalance -= amount;
+        require(WSTETH.transfer(msg.sender, amount), "Withdraw failed");
+    }
+
+    function withdrawCHESS(uint256 amount) external {
+        require(balances[msg.sender].CHESSBalance >= amount, "Insufficient balance");
+        balances[msg.sender].CHESSBalance -= amount;
+        require(CHESS.transfer(msg.sender, amount), "Withdraw failed");
+    }
+
+    function withdrawEBTC(uint256 amount) external {
+        require(balances[msg.sender].EBTCBalance >= amount, "Insufficient balance");
+        balances[msg.sender].EBTCBalance -= amount;
+        require(EBTC.transfer(msg.sender, amount), "Withdraw failed");
+    }
+
+    // Check balance of a specific token for a user
+    function getBalance(address account, string memory token) external view returns (uint256) {
+        if (keccak256(abi.encodePacked(token)) == keccak256(abi.encodePacked("USDC"))) {
+            return balances[account].USDCBalance;
+        } else if (keccak256(abi.encodePacked(token)) == keccak256(abi.encodePacked("USDT"))) {
+            return balances[account].USDTBalance;
+        } else if (keccak256(abi.encodePacked(token)) == keccak256(abi.encodePacked("WSTETH"))) {
+            return balances[account].WSTETHBalance;
+        } else if (keccak256(abi.encodePacked(token)) == keccak256(abi.encodePacked("CHESS"))) {
+            return balances[account].CHESSBalance;
+        } else if (keccak256(abi.encodePacked(token)) == keccak256(abi.encodePacked("EBTC"))) {
+            return balances[account].EBTCBalance;
+        }
+        return 0;
+    }
+
+    // Stake function with 0% interest
+    function stake() external {
+        // Since interest rate is 0%, no rewards are applied here
+        // This function could be extended to record staking time if needed
+    }
+}
