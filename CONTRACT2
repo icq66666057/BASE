@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract SimpleSwapAndPool {
+    IERC20 public USDC = IERC20(0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4);
+    IERC20 public USDT = IERC20(0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df);
+    IERC20 public WSTETH = IERC20(0xf610A9dfB7C89644979b4A0f27063E9e7d7Cda32);
+    IERC20 public CHESS = IERC20(0x9735fb1126B521A913697A541f768376011bCcF9);
+    IERC20 public EBTC = IERC20(0xCA8dF0B6bD5588f3FD651F85f6E5aCe325bA9Dfd);
+
+    // Liquidity pool for each token pair
+    mapping(address => mapping(address => uint256)) public poolBalances;
+    mapping(address => mapping(address => uint256)) public userLiquidity;
+
+    // Event for adding liquidity
+    event LiquidityAdded(address indexed user, address tokenA, address tokenB, uint256 amountA, uint256 amountB);
+    // Event for removing liquidity
+    event LiquidityRemoved(address indexed user, address tokenA, address tokenB, uint256 amountA, uint256 amountB);
+    // Event for token swap
+    event Swapped(address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
+    // Add liquidity for a token pair
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB
+    ) external {
+        require(amountA > 0 && amountB > 0, "Invalid amounts");
+
+        IERC20(tokenA).transferFrom(msg.sender, address(this), amountA);
+        IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
+
+        poolBalances[tokenA][tokenB] += amountA;
+        poolBalances[tokenB][tokenA] += amountB;
+
+        userLiquidity[msg.sender][tokenA] += amountA;
+        userLiquidity[msg.sender][tokenB] += amountB;
+
+        emit LiquidityAdded(msg.sender, tokenA, tokenB, amountA, amountB);
+    }
+
+    // Remove liquidity for a token pair
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB
+    ) external {
+        require(userLiquidity[msg.sender][tokenA] >= amountA, "Insufficient liquidity for tokenA");
+        require(userLiquidity[msg.sender][tokenB] >= amountB, "Insufficient liquidity for tokenB");
+
+        userLiquidity[msg.sender][tokenA] -= amountA;
+        userLiquidity[msg.sender][tokenB] -= amountB;
+
+        poolBalances[tokenA][tokenB] -= amountA;
+        poolBalances[tokenB][tokenA] -= amountB;
+
+        IERC20(tokenA).transfer(msg.sender, amountA);
+        IERC20(tokenB).transfer(msg.sender, amountB);
+
+        emit LiquidityRemoved(msg.sender, tokenA, tokenB, amountA, amountB);
+    }
+
+    // Swap between token pairs
+    function swap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) external returns (uint256 amountOut) {
+        require(amountIn > 0, "AmountIn must be greater than zero");
+        require(poolBalances[tokenIn][tokenOut] > 0, "Insufficient liquidity in the pool");
+
+        uint256 reserveIn = poolBalances[tokenIn][tokenOut];
+        uint256 reserveOut = poolBalances[tokenOut][tokenIn];
+
+        // Basic pricing formula (not including fees): amountOut = (amountIn * reserveOut) / (reserveIn + amountIn)
+        amountOut = (amountIn * reserveOut) / (reserveIn + amountIn);
+
+        require(amountOut > 0, "Insufficient output amount");
+
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        IERC20(tokenOut).transfer(msg.sender, amountOut);
+
+        poolBalances[tokenIn][tokenOut] += amountIn;
+        poolBalances[tokenOut][tokenIn] -= amountOut;
+
+        emit Swapped(msg.sender, tokenIn, tokenOut, amountIn, amountOut);
+    }
+
+    // Get reserves for a token pair
+    function getReserves(address tokenA, address tokenB) external view returns (uint256 reserveA, uint256 reserveB) {
+        reserveA = poolBalances[tokenA][tokenB];
+        reserveB = poolBalances[tokenB][tokenA];
+    }
+
+    // Check liquidity of a user for a token pair
+    function getUserLiquidity(address user, address tokenA, address tokenB) external view returns (uint256, uint256) {
+        return (userLiquidity[user][tokenA], userLiquidity[user][tokenB]);
+    }
+}
