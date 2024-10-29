@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+contract MathOperations {
+    
+    // Функция сложения
+    function adder(uint _a, uint _b) public pure returns (uint sum, bool error) {
+        unchecked {
+            uint result = _a + _b;
+            // Проверка переполнения
+            if (result >= _a) {
+                return (result, false); // Нет ошибки, возвращаем результат
+            } else {
+                return (0, true); // Переполнение, возвращаем 0 и ошибку true
+            }
+        }
+    }
+
+    // Функция вычитания
+    function subtractor(uint _a, uint _b) public pure returns (uint difference, bool error) {
+        unchecked {
+            // Проверка недостатка
+            if (_a >= _b) {
+                return (_a - _b, false); // Нет ошибки, возвращаем результат
+            } else {
+                return (0, true); // Недостаток, возвращаем 0 и ошибку true
+            }
+        }
+    }
+}
