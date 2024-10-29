@@ -1,64 +1,77 @@
+                                                                                                                      1 контракт название нужно вставить во второй
+
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
 
-contract ErrorTriageExercise {
-    /**
-     * Finds the difference between each uint with its neighbor (a to b, b to c, etc.)
-     * and returns a uint array with the absolute integer difference of each pairing.
-     */
-    function diffWithNeighbor(
-        uint _a,
-        uint _b,
-        uint _c,
-        uint _d
-    ) public pure returns (uint[] memory) {
-        uint[] memory results = new uint[](3);
+pragma solidity ^0.8.17;
 
-        results[0] = _a - _b;
-        results[1] = _b - _c;
-        results[2] = _c - _d;
+library SillyStringUtils {
 
-        return results;
+    struct Haiku {
+        string line1;
+        string line2;
+        string line3;
     }
 
-    /**
-     * Changes the _base by the value of _modifier. Base is always >= 1000. Modifiers can be
-     * between positive and negative 100.
-     */
-    function applyModifier(
-        uint _base,
-        int _modifier
-    ) public pure returns (uint) {
-        // Приводим _modifier к uint только если результат не приведет к ошибке
-        int modifiedBase = int(_base) + _modifier;
-        require(modifiedBase >= 0, "Resulting value cannot be negative");
-
-        return uint(modifiedBase);
-    }
-
-    /**
-     * Pop the last element from the supplied array and return the popped value (unlike the built-in function)
-     */
-    uint[] arr;
-
-    function popWithReturn() public returns (uint) {
-        require(arr.length > 0, "Array is empty");
-
-        uint lastElement = arr[arr.length - 1];
-        arr.pop(); // Используем встроенную функцию pop для удаления последнего элемента
-        return lastElement;
-    }
-
-    // The utility functions below are working as expected
-    function addToArr(uint _num) public {
-        arr.push(_num);
-    }
-
-    function getArr() public view returns (uint[] memory) {
-        return arr;
-    }
-
-    function resetArr() public {
-        delete arr;
+    function shruggie(string memory _input) internal pure returns (string memory) {
+        return string.concat(_input, unicode" 🤷");
     }
 }
+
+
+
+                                                                                                                        2 контракт
+      
+
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.28;
+
+// Import the SillyStringUtils library
+import "./test8.sol";
+
+/**
+ * @title ImportsExercise
+ * @dev Contract to save, retrieve, and modify Haikus using the SillyStringUtils library
+ */
+contract ImportsExercise {
+    // Use SillyStringUtils library for string manipulation
+    using SillyStringUtils for string;
+
+    // Public variable to store a Haiku struct from SillyStringUtils
+    SillyStringUtils.Haiku public haiku;
+
+    /**
+     * @dev Function to save a Haiku by setting three lines of text
+     * @param _line1 The first line of the Haiku
+     * @param _line2 The second line of the Haiku
+     * @param _line3 The third line of the Haiku
+     */
+    function saveHaiku(string memory _line1, string memory _line2, string memory _line3) public {
+        haiku.line1 = _line1;
+        haiku.line2 = _line2;
+        haiku.line3 = _line3;
+    }
+
+    /**
+     * @dev Function to retrieve the saved Haiku
+     * @return The Haiku struct containing all three lines
+     */
+    function getHaiku() public view returns (SillyStringUtils.Haiku memory) {
+        return haiku;
+    }
+
+    /**
+     * @dev Function to add a shrugging emoji to the end of the third line of the Haiku
+     * @return A copy of the Haiku struct with the modified third line
+     */
+    function shruggieHaiku() public view returns (SillyStringUtils.Haiku memory) {
+        // Make a copy of the stored Haiku
+        SillyStringUtils.Haiku memory modifiedHaiku = haiku;
+        // Append the shrugging emoji to the third line using SillyStringUtils's shruggie function
+        modifiedHaiku.line3 = modifiedHaiku.line3.shruggie();
+        return modifiedHaiku;
+    }
+}
+
+
