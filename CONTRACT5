@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+// IERC20 Interface integrated directly into the contract to avoid import issues
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+contract PredictionBetAndRewardPool {
+    IERC20 public USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+    IERC20 public WSTETH = IERC20(0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452);
+    IERC20 public DAI = IERC20(0x9735fb1126B521A913697A541f768376011bCcF9);
+    IERC20 public AERO = IERC20(0x940181a94A35A4569E4529A3CDfB74e38FD98631);
+    IERC20 public SUPER_OETHB = IERC20(0xDBFeFD2e8460a6Ee4955A68582F85708BAEA60A3);
+
+    struct Bet {
+        address better;
+        uint256 amount;
+        uint8 prediction; // 0 or 1
+    }
+
+    struct LockedBalance {
+        address token;
+        uint256 amount;
+        uint256 unlockTime;
+    }
+
+    mapping(uint256 => Bet[]) public bets;
+    mapping(address => LockedBalance) public lockedBalances;
+    mapping(address => uint256) public lotteryTickets;
+    address[] public lotteryParticipants;
+
+    uint256 public rewardPool;
+    uint256 public lotteryPool;
+    uint256 public betEventId;
+    uint256 public ticketPrice = 100 * 1e6; // 100 USDC
+    uint256 public lockRewardMultiplier = 2;
+
+    event BetPlaced(uint256 eventId, address indexed better, uint256 amount, uint8 prediction);
+    event BetSettled(uint256 eventId, uint8 outcome, address[] winners, uint256 rewardPerWinner);
+    event TokensLocked(address indexed user, address token, uint256 amount, uint256 unlockTime);
+    event TokensUnlocked(address indexed user, address token, uint256 amount, uint256 reward);
+    event LotteryEntered(address indexed participant, uint256 tickets);
+    event LotteryWon(address indexed winner, uint256 reward);
+
+    // Функция для размещения ставки на событие
+    function placeBet(address token, uint256 amount, uint8 prediction) external {
+        require(prediction == 0 || prediction == 1, "Invalid prediction");
+        require(amount > 0, "Amount must be greater than zero");
+
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        bets[betEventId].push(Bet({ better: msg.sender, amount: amount, prediction: prediction }));
+
+        rewardPool += amount;
+
+        emit BetPlaced(betEventId, msg.sender, amount, prediction);
+    }
+
+    // Функция для завершения события и распределения награды победителям
+    function settleBet(uint256 eventId, uint8 outcome) external {
+        require(outcome == 0 || outcome == 1, "Invalid outcome");
+
+        uint256 totalWinners;
+        for (uint256 i = 0; i < bets[eventId].length; i++) {
+            if (bets[eventId][i].prediction == outcome) {
+                totalWinners++;
+            }
+        }
+
+        uint256 rewardPerWinner = rewardPool / totalWinners;
+        address[] memory winners = new address[](totalWinners);
+        uint256 winnerIndex = 0;
+
+        for (uint256 i = 0; i < bets[eventId].length; i++) {
+            if (bets[eventId][i].prediction == outcome) {
+                IERC20(USDC).transfer(bets[eventId][i].better, rewardPerWinner);
+                winners[winnerIndex] = bets[eventId][i].better;
+                winnerIndex++;
+            }
+        }
+
+        rewardPool = 0;
+        betEventId++;
+
+        emit BetSettled(eventId, outcome, winners, rewardPerWinner);
+    }
+
+    // Функция для блокировки токенов и получения вознаграждения после разблокировки
+    function lockTokens(address token, uint256 amount, uint256 lockDuration) external {
+        require(amount > 0, "Amount must be greater than zero");
+        require(lockDuration > 0, "Lock duration must be greater than zero");
+
+        uint256 unlockTime = block.timestamp + lockDuration;
+
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        lockedBalances[msg.sender] = LockedBalance({ token: token, amount: amount, unlockTime: unlockTime });
+
+        emit TokensLocked(msg.sender, token, amount, unlockTime);
+    }
+
+    // Функция для разблокировки токенов и получения вознаграждения
+    function unlockTokens() external {
+        LockedBalance storage lock = lockedBalances[msg.sender];
+        require(block.timestamp >= lock.unlockTime, "Tokens are still locked");
+
+        uint256 reward = lock.amount * lockRewardMultiplier;
+        IERC20(lock.token).transfer(msg.sender, reward);
+
+        emit TokensUnlocked(msg.sender, lock.token, lock.amount, reward);
+        
+        delete lockedBalances[msg.sender];
+    }
+
+    // Функция для покупки билетов для участия в лотерее
+    function enterLottery(uint256 numTickets) external {
+        require(numTickets > 0, "Number of tickets must be greater than zero");
+        uint256 totalCost = ticketPrice * numTickets;
+
+        IERC20(USDC).transferFrom(msg.sender, address(this), totalCost);
+
+        if (lotteryTickets[msg.sender] == 0) {
+            lotteryParticipants.push(msg.sender);
+        }
+        lotteryTickets[msg.sender] += numTickets;
+        lotteryPool += totalCost;
+
+        emit LotteryEntered(msg.sender, numTickets);
+    }
+
+    // Функция для выбора случайного победителя в лотерее
+    function drawLotteryWinner() external {
+        require(lotteryParticipants.length > 0, "No participants in lottery");
+
+        uint256 randomIndex = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % lotteryParticipants.length;
+        address winner = lotteryParticipants[randomIndex];
+
+        IERC20(USDC).transfer(winner, lotteryPool);
+
+        emit LotteryWon(winner, lotteryPool);
+
+        // Очистка данных для следующей лотереи
+        lotteryPool = 0;
+        for (uint256 i = 0; i < lotteryParticipants.length; i++) {
+            delete lotteryTickets[lotteryParticipants[i]];
+        }
+        delete lotteryParticipants;
+    }
+}
