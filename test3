@@ -1,0 +1,67 @@
+shares - 1000
+name - Pat
+salary - 50000
+idNumber - 112358132134
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+contract EmployeeStorage {
+    // Private state variables
+    uint16 private shares; // Number of shares owned by the employee (up to 65,535)
+    uint32 private salary; // Monthly salary of the employee (up to 1,000,000)
+    
+    // Public state variables
+    uint256 public idNumber; // Unique identification number of the employee
+    string public name; // Name of the employee
+
+    // Custom error for exceeding share limit
+    error TooManyShares(uint16 totalShares);
+
+    // Constructor to initialize employee data at deployment
+    constructor(uint16 _shares, string memory _name, uint32 _salary, uint _idNumber) {
+        require(_salary <= 1_000_000, "Salary exceeds limit"); // Ensure salary is within bounds
+        shares = _shares;
+        name = _name;
+        salary = _salary;
+        idNumber = _idNumber;
+    }
+
+    // View function to get the number of shares owned by the employee
+    function viewShares() public view returns (uint16) {
+        return shares;
+    }
+
+    // View function to get the employee's salary
+    function viewSalary() public view returns (uint32) {
+        return salary;
+    }
+
+    // Function to grant additional shares to the employee
+    function grantShares(uint16 _newShares) public {
+        if (_newShares > 5000) {
+            revert("Too many shares"); // Revert if new shares exceed 5000
+        } else if (shares + _newShares > 5000) {
+            revert TooManyShares(shares + _newShares); // Revert with custom error if total exceeds limit
+        }
+        shares += _newShares; // Add new shares to existing shares
+    }
+
+    /**
+    * Function to check storage packing (for testing purposes)
+    */
+    function checkForPacking(uint _slot) public view returns (uint r) {
+        assembly {
+            r := sload(_slot)
+        }
+    }
+
+    /**
+    * Debug function to reset shares to 1000
+    * Warning: This can be called by anyone!
+    */
+    function debugResetShares() public {
+        shares = 1000;
+    }
+}
