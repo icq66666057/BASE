@@ -1,40 +1,51 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.17;
 
 contract ControlStructures {
-    
-    // FizzBuzz function
-    function fizzBuzz(uint _number) public pure returns (string memory) {
+    // Custom errors for specific conditions
+    error AfterHours(uint256 time);
+    error AtLunch();
+
+    // FizzBuzz function that returns "Fizz", "Buzz", "FizzBuzz", or "Splat"
+    function fizzBuzz(uint256 _number) public pure returns (string memory response) {
+        // If the number is divisible by both 3 and 5
         if (_number % 3 == 0 && _number % 5 == 0) {
-            return "FizzBuzz";
-        } else if (_number % 3 == 0) {
-            return "Fizz";
-        } else if (_number % 5 == 0) {
-            return "Buzz";
-        } else {
-            return "Splat";
+            return "FizzBuzz"; // Divisible by both 3 and 5
+        } 
+        // If the number is divisible only by 3
+        else if (_number % 3 == 0) {
+            return "Fizz"; // Divisible by 3 only
+        } 
+        // If the number is divisible only by 5
+        else if (_number % 5 == 0) {
+            return "Buzz"; // Divisible by 5 only
+        } 
+        // If none of the above conditions match
+        else {
+            return "Splat"; // Not divisible by 3 or 5
         }
     }
 
-    // Custom error for doNotDisturb function
-    error AfterHours(uint time);
+    // Function to handle different times and return or revert based on input
+    function doNotDisturb(uint256 _time) public pure returns (string memory result) {
+        // Ensure _time is less than 2400, else trigger a panic
+        assert(_time < 2400); // Reverts if _time is 2400 or above (invalid)
 
-    // doNotDisturb function
-    function doNotDisturb(uint _time) public pure returns (string memory) {
-        require(_time < 2400, "Invalid time!"); // Panic if time is 2400 or above
-
+        // Handle the different time ranges
         if (_time > 2200 || _time < 800) {
-            revert AfterHours(_time); // Custom error if time is after hours
-        } else if (_time >= 1200 && _time <= 1259) {
-            revert("At lunch!"); // Revert with message if time is during lunch
-        } else if (_time >= 800 && _time <= 1199) {
-            return "Morning!";
-        } else if (_time >= 1300 && _time <= 1799) {
-            return "Afternoon!";
-        } else if (_time >= 1800 && _time <= 2200) {
-            return "Evening!";
+            revert AfterHours(_time); // Custom error for "After Hours"
+        } 
+        else if (_time >= 1200 && _time <= 1259) {
+            revert AtLunch(); // Custom error for lunch time
+        } 
+        else if (_time >= 800 && _time <= 1159) {
+            return "Morning!"; // Morning time
+        } 
+        else if (_time >= 1300 && _time <= 1759) {
+            return "Afternoon!"; // Afternoon time
+        } 
+        else if (_time >= 1800 && _time <= 2200) {
+            return "Evening!"; // Evening time
         }
-        
-        return "Unknown time"; // This line should never be reached, added for safety
     }
 }
