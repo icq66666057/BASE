@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+/**
+ * @title FavoriteRecords
+ * @dev Contract to manage a list of approved music records and allow users to add them to their favorites
+ */
+contract FavoriteRecords {
+    // Mapping to check if a record is approved
+    mapping(string => bool) private approvedRecords;
+    // Array to store the list of approved record names
+    string[] private approvedRecordsIndex;
+
+    // Mapping to store user's favorite records (true if added to favorites)
+    mapping(address => mapping(string => bool)) public userFavorites;
+    // Array of user's favorite records for easy access and listing
+    mapping(address => string[]) private userFavoritesIndex;
+
+    // Custom error for unapproved records
+    error NotApproved(string albumName);
+
+    /**
+     * @dev Constructor to initialize the list of approved records
+     */
+    constructor() {
+        // Initialize the list of approved records
+        approvedRecordsIndex = [
+            "Thriller", 
+            "Back in Black", 
+            "The Bodyguard", 
+            "The Dark Side of the Moon", 
+            "Their Greatest Hits (1971-1975)", 
+            "Hotel California", 
+            "Come On Over", 
+            "Rumours", 
+            "Saturday Night Fever"
+        ];
+        // Mark each approved record as true in the mapping
+        for (uint i = 0; i < approvedRecordsIndex.length; i++) {
+            approvedRecords[approvedRecordsIndex[i]] = true;
+        }
+    }
+
+    /**
+     * @dev Returns the list of all approved records
+     * @return A string array of approved record names
+     */
+    function getApprovedRecords() public view returns (string[] memory) {
+        return approvedRecordsIndex;
+    }
+
+    /**
+     * @dev Adds an album to the user's list of favorites if it is approved
+     * @param _albumName The name of the album to add to favorites
+     */
+    function addRecord(string memory _albumName) public {
+        // Revert if the album is not approved
+        if (!approvedRecords[_albumName]) {
+            revert NotApproved({albumName: _albumName});
+        }
+        // Only add to favorites if it's not already in the user's list
+        if (!userFavorites[msg.sender][_albumName]) {
+            userFavorites[msg.sender][_albumName] = true;
+            userFavoritesIndex[msg.sender].push(_albumName);
+        }
+    }
+
+    /**
+     * @dev Retrieves the list of favorite albums for a specified user
+     * @param _address The address of the user
+     * @return A string array of the user's favorite album names
+     */
+    function getUserFavorites(address _address) public view returns (string[] memory) {
+        return userFavoritesIndex[_address];
+    }
+
+    /**
+     * @dev Resets the list of favorite records for the caller
+     */
+    function resetUserFavorites() public {
+        // Remove each album from the user's favorites mapping
+        for (uint i = 0; i < userFavoritesIndex[msg.sender].length; i++) {
+            delete userFavorites[msg.sender][userFavoritesIndex[msg.sender][i]];
+        }
+        // Reset the user's favorites index array
+        delete userFavoritesIndex[msg.sender];
+    }
+}
