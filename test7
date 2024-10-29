@@ -1,0 +1,125 @@
+Contract выбираем Salesperson
+Id Number: 55555
+Manager id: 12345
+Salary: 20
+
+Далее снова выбираем Contract и тыкаем на EngineeringManager
+Id Number: 54321
+Manager id: 11111
+Annual salary: 200000
+
+Далее тыкаем на Contract выбираем InheritanceSubmission
+
+Спускаемся вниз и копируем 1. Salesperon контракт адрес; 2. EngineeringManager контракт адрес и вписываем их выше
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+/**
+ * @title Employee
+ * @dev Abstract contract for an employee with basic properties
+ */
+abstract contract Employee {
+    // Public state variables for employee's ID and manager ID
+    uint public idNumber;
+    uint public managerId;
+
+    // Constructor to initialize idNumber and managerId
+    constructor(uint _idNumber, uint _managerId) {
+        idNumber = _idNumber;
+        managerId = _managerId;
+    }
+
+    // Abstract function to calculate the annual cost of the employee
+    function getAnnualCost() public view virtual returns (uint);
+}
+
+/**
+ * @title Salaried
+ * @dev Contract for salaried employees, inheriting from Employee
+ */
+contract Salaried is Employee {
+    // Public state variable for annual salary
+    uint public annualSalary;
+
+    // Constructor to initialize the salaried employee
+    constructor(uint _idNumber, uint _managerId, uint _annualSalary) Employee(_idNumber, _managerId) {
+        annualSalary = _annualSalary;
+    }
+
+    // Override function to return the annual cost for salaried employees
+    function getAnnualCost() public view override returns (uint) {
+        return annualSalary;
+    }
+}
+
+/**
+ * @title Hourly
+ * @dev Contract for hourly employees, inheriting from Employee
+ */
+contract Hourly is Employee {
+    // Public state variable for hourly rate
+    uint public hourlyRate;
+
+    // Constructor to initialize the hourly employee
+    constructor(uint _idNumber, uint _managerId, uint _hourlyRate) Employee(_idNumber, _managerId) {
+        hourlyRate = _hourlyRate;
+    }
+
+    // Override function to return the annual cost based on hourly rate and 2080 hours
+    function getAnnualCost() public view override returns (uint) {
+        return hourlyRate * 2080;
+    }
+}
+
+/**
+ * @title Manager
+ * @dev Contract to manage a team of employees by storing their IDs
+ */
+contract Manager {
+    // Public array to store employee IDs under this manager
+    uint[] public employeeIds;
+
+    // Function to add a new employee ID to the manager's list
+    function addReport(uint _id) public {
+        employeeIds.push(_id);
+    }
+
+    // Function to reset the list of employee IDs
+    function resetReports() public {
+        delete employeeIds;
+    }
+}
+
+/**
+ * @title Salesperson
+ * @dev Contract for a salesperson, inheriting from Hourly
+ */
+contract Salesperson is Hourly {
+    // Constructor to initialize the salesperson with hourly rate, ID number, and manager ID
+    constructor(uint _idNumber, uint _managerId, uint _hourlyRate) Hourly(_idNumber, _managerId, _hourlyRate) {}
+}
+
+/**
+ * @title EngineeringManager
+ * @dev Contract for an engineering manager, inheriting from both Salaried and Manager
+ */
+contract EngineeringManager is Salaried, Manager {
+    // Constructor to initialize the engineering manager with ID number, manager ID, and annual salary
+    constructor(uint _idNumber, uint _managerId, uint _annualSalary) Salaried(_idNumber, _managerId, _annualSalary) {}
+}
+
+/**
+ * @title InheritanceSubmission
+ * @dev Contract to store addresses of Salesperson and EngineeringManager contracts
+ */
+contract InheritanceSubmission {
+    address public salesPerson;
+    address public engineeringManager;
+
+    // Constructor to set addresses for Salesperson and EngineeringManager
+    constructor(address _salesPerson, address _engineeringManager) {
+        salesPerson = _salesPerson;
+        engineeringManager = _engineeringManager;
+    }
+}
